@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.hephaestus.treefax.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "world.MixinChunkSerializer",
+    "world.MixinProtoChunk",
+    "world.MixinReadOnlyChunk",
+    "world.MixinWorldChunk",
+    "world.gen.feature.MixinTreeFeature"
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

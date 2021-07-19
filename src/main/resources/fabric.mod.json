@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "treefax",
+  "version": "${version}",
+  "name": "TreeFax",
+  "description": "A small library for tracking trees in your Minecraft world.",
+  "authors": [
+    "Haven King"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/treefax/icon.png",
+  "environment": "*",
+  "entrypoints": {},
+  "mixins": [
+    "TreeFax.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.9+",
+    "minecraft": "1.17.1"
+  },
+  "custom": {
+    "modmenu": {
+      "badges": [ "library" ]
+    }
+  }
+}
