@@ -1,7 +1,5 @@
 package dev.hephaestus.treefax.impl;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
 import dev.hephaestus.treefax.api.Tree;
 import dev.hephaestus.treefax.api.TreeTracker;
 import net.minecraft.block.Block;
@@ -16,20 +14,19 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.tag.BlockTags;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.WorldEvents;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 public class TreeTrackerImpl implements TreeTracker {
     private final Chunk chunk;
-    private final Multimap<BlockPos, Tree> trees = HashMultimap.create();
+
+    private Tree[][][][] trees = null;
 
     public TreeTrackerImpl(Chunk chunk) {
         this.chunk = chunk;
@@ -41,9 +38,40 @@ public class TreeTrackerImpl implements TreeTracker {
 
         tree.forEachLog(log -> {
             if (contains(chunkPos, log)) {
-                this.trees.put(log, tree);
+                this.put(log, tree);
             }
         });
+    }
+
+    private void init(BlockPos pos) {
+        int chunkX = MathHelper.floorMod(pos.getX(), 16), chunkY = (pos.getY() - this.chunk.getBottomY()) / 16, dY = MathHelper.floorMod(pos.getY() - this.chunk.getBottomY(), 16);
+
+        if (this.trees == null) this.trees = new Tree[16][][][];
+        if (this.trees[chunkX] == null) this.trees[chunkX] = new Tree[this.chunk.getHeight() / 16][][];
+        if (this.trees[chunkX][chunkY] == null) this.trees[chunkX][chunkY] = new Tree[16][];
+        if (this.trees[chunkX][chunkY][dY] == null) this.trees[chunkX][chunkY][dY] = new Tree[16];
+    }
+
+    private void put(BlockPos pos, Tree tree) {
+        int chunkX = MathHelper.floorMod(pos.getX(), 16), chunkY = (pos.getY() - this.chunk.getBottomY()) / 16, dY = MathHelper.floorMod(pos.getY() - this.chunk.getBottomY(), 16), chunkZ = MathHelper.floorMod(pos.getZ(), 16);
+
+        this.init(pos);
+
+        this.trees[chunkX][chunkY][dY][chunkZ] = tree;
+    }
+
+    public void remove(BlockPos pos) {
+        if (this.trees == null) return;
+
+        int chunkX = MathHelper.floorMod(pos.getX(), 16), chunkY = (pos.getY() - this.chunk.getBottomY()) / 16, dY = MathHelper.floorMod(pos.getY() - this.chunk.getBottomY(), 16), chunkZ = MathHelper.floorMod(pos.getZ(), 16);
+
+        if (this.trees[chunkX] == null) return;
+
+        if (this.trees[chunkX][chunkY] == null) return;
+
+        if (this.trees[chunkX][chunkY][dY] == null) return;
+
+        this.trees[chunkX][chunkY][dY][chunkZ] = null;
     }
 
     @Override
@@ -81,7 +109,7 @@ public class TreeTrackerImpl implements TreeTracker {
 
                             TreeTrackerImpl tracker = ((TreeChunk) (world.getChunk(log))).getTracker();
 
-                            tracker.trees.remove(log, tracker.getTree(log));
+                            tracker.remove(log);
                         }
                     }
                 }
@@ -102,31 +130,32 @@ public class TreeTrackerImpl implements TreeTracker {
 
     @Override
     public @Nullable Tree getTree(@NotNull BlockPos pos) {
-        for (Tree tree : this.trees.get(pos)) {
-            if (tree.containsLog(pos) && pos.equals(tree.getLog(pos))) {
-                return tree;
-            }
-        }
+        return this.getTree(pos.getX(), pos.getY(), pos.getZ());
+    }
 
-        return null;
+    @Override
+    public @Nullable Tree getTree(int x, int y, int z) {
+        if (this.trees == null) return null;
+
+        int chunkX = MathHelper.floorMod(x, 16), chunkY = (y - this.chunk.getBottomY()) / 16, dY = MathHelper.floorMod(y - this.chunk.getBottomY(), 16), chunkZ = MathHelper.floorMod(z, 16);
+
+        return this.trees[chunkX] == null || this.trees[chunkX][chunkY] == null || this.trees[chunkX][chunkY][dY] == null
+                ? null : this.trees[chunkX][chunkY][dY][chunkZ];
+
     }
 
     public void readFromNbt(NbtCompound tag) {
         if (tag.contains("Trees", NbtElement.LIST_TYPE)) {
-            NbtList list = tag.getList("Trees", NbtElement.COMPOUND_TYPE);
+            NbtList list = tag.getList("Trees", NbtElement.LIST_TYPE);
 
             for (NbtElement element : list) {
-                if (element.getType() == NbtElement.COMPOUND_TYPE) {
-                    NbtCompound compound = (NbtCompound) element;
-
-                    List<BlockPos> logs = compound.contains("Logs", NbtElement.LIST_TYPE)
-                            ? fromTag(compound.getList("Logs", NbtElement.INT_ARRAY_TYPE))
-                            : Collections.emptyList();
+                if (element.getType() == NbtElement.LIST_TYPE) {
+                    List<BlockPos> logs = fromTag((NbtList) element);
 
                     Tree tree = new Tree(logs);
 
-                    for (BlockPos log : logs) {
-                        this.trees.put(log, tree);
+                    for (int i = 0; i < logs.size(); ++i) {
+                        this.put(logs.get(i), tree);
                     }
                 }
             }
@@ -136,18 +165,29 @@ public class TreeTrackerImpl implements TreeTracker {
     public void writeToNbt(NbtCompound tag) {
         NbtList list = new NbtList();
 
-        for (Tree tree : new HashSet<>(this.trees.values())) {
-            NbtCompound treeTag = new NbtCompound();
+        if (this.trees != null) {
+            for (int x = 0; x < 16; ++x) {
+                if (this.trees[x] == null) continue;
 
-            NbtList logs = new NbtList();
-            NbtList leaves = new NbtList();
+                for (int chunkY = 0; chunkY < this.chunk.getHeight() / 16; ++chunkY) {
+                    if (this.trees[x][chunkY] == null) continue;
 
-            tree.forEachLog(pos -> logs.add(toTag(pos)));
+                    for (int dY = 0; dY < 16; ++dY) {
+                        if (this.trees[x][chunkY][dY] == null) continue;
 
-            treeTag.put("Logs", logs);
-            treeTag.put("Leaves", leaves);
+                        for (int z = 0; z < 16; ++z) {
+                            if (this.trees[x][chunkY][dY][z] == null) continue;
 
-            list.add(treeTag);
+                            Tree tree = trees[x][chunkY][dY][z];
+
+                            NbtList logs = new NbtList();
+
+                            tree.forEachLog(pos -> logs.add(toTag(pos)));
+                            list.add(logs);
+                        }
+                    }
+                }
+            }
         }
 
         tag.put("Trees", list);
@@ -165,7 +205,7 @@ public class TreeTrackerImpl implements TreeTracker {
         List<BlockPos> logs = new ArrayList<>(list.size());
 
         for (NbtElement element : list) {
-            if (element.getType() == NbtElement.COMPOUND_TYPE) {
+            if (element.getType() == NbtElement.INT_ARRAY_TYPE) {
                 logs.add(fromTag((NbtIntArray) element));
             }
         }
@@ -176,9 +216,5 @@ public class TreeTrackerImpl implements TreeTracker {
     private static boolean contains(ChunkPos chunkPos, BlockPos blockPos) {
         return blockPos.getX() >= chunkPos.getStartX() && blockPos.getX() <= chunkPos.getEndX()
                 && blockPos.getZ() >= chunkPos.getStartZ() && blockPos.getZ() <= chunkPos.getEndZ();
-    }
-
-    public void remove(BlockPos pos, Tree tree) {
-        this.trees.remove(pos, tree);
     }
 }

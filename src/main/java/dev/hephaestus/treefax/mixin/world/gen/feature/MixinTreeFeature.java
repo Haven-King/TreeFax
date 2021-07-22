@@ -23,6 +23,6 @@ import java.util.function.BiConsumer;
 public class MixinTreeFeature {
     @Inject(method = "generate(Lnet/minecraft/world/gen/feature/util/FeatureContext;)Z", at = @At("RETURN"), cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD)
     private void groupTrunks(FeatureContext<TreeFeatureConfig> context, CallbackInfoReturnable<Boolean> cir, StructureWorldAccess structureWorldAccess, Random random, BlockPos blockPos, TreeFeatureConfig treeFeatureConfig, Set<BlockPos> logsSet, Set<BlockPos> leavesSet, Set<BlockPos> decorationSet, BiConsumer<BlockPos, BlockState> biConsumer, BiConsumer<BlockPos, BlockState> biConsumer2, BiConsumer<BlockPos, BlockState> biConsumer3, boolean bl) {
-        ((TreeChunk) structureWorldAccess.getChunk(blockPos)).getTracker().addTree(new Tree(structureWorldAccess, new ArrayList<>(logsSet)));
+        ((TreeChunk) structureWorldAccess.getChunk(blockPos)).getTracker().addTree(new Tree(new ArrayList<>(logsSet)));
     }
 }

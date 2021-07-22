@@ -51,7 +51,9 @@ public interface TreeTracker {
     static void removeTree(ServerWorld world, Tree tree) {
         tree.forEachLog(pos -> {
             TreeTrackerImpl tracker = ((TreeChunk) (world.getChunk(pos))).getTracker();
-            tracker.remove(pos, tree);
+            tracker.remove(pos);
         });
     }
+
+    @Nullable Tree getTree(int x, int y, int z);
 }

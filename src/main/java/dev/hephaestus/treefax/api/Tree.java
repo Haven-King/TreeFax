@@ -1,28 +1,27 @@
 package dev.hephaestus.treefax.api;
 
-import net.minecraft.tag.BlockTags;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.StructureWorldAccess;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class Tree {
     private final List<BlockPos> logList;
     private final Collection<BlockPos> logs;
 
-    public Tree(StructureWorldAccess structureWorldAccess, Collection<BlockPos> logs) {
+    public Tree(Collection<BlockPos> logs) {
         this.logList = new ArrayList<>(logs.size());
         this.logs = new HashSet<>(logs.size());
 
         for (BlockPos log : logs) {
-            if (structureWorldAccess.getBlockState(log).isIn(BlockTags.LOGS)) {
-                log = log.toImmutable();
+            log = log.toImmutable();
 
-                this.logList.add(log);
-                this.logs.add(log);
-            }
+            this.logList.add(log);
+            this.logs.add(log);
         }
     }
 
@@ -32,7 +31,9 @@ public class Tree {
     }
 
     public void forEachLog(Consumer<BlockPos> consumer) {
-        this.logList.forEach(consumer);
+        for (int i = 0; i < this.logList.size(); ++i) {
+            consumer.accept(this.logList.get(i));
+        }
     }
 
     public boolean containsLog(BlockPos pos) {
@@ -40,7 +41,8 @@ public class Tree {
     }
 
     public @Nullable BlockPos getLog(BlockPos pos) {
-        for (BlockPos log : this.logList) {
+        for (int i = 0; i < this.logList.size(); ++i) {
+            BlockPos log = this.logList.get(i);
             if (log.equals(pos)) return log;
         }
 

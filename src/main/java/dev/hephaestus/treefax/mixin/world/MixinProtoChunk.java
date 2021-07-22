@@ -3,7 +3,10 @@ package dev.hephaestus.treefax.mixin.world;
 import dev.hephaestus.treefax.impl.TreeChunk;
 import dev.hephaestus.treefax.impl.TreeTrackerImpl;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.fluid.Fluid;
+import net.minecraft.tag.BlockTags;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkTickScheduler;
 import net.minecraft.world.HeightLimitView;
@@ -14,6 +17,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ProtoChunk.class)
 public class MixinProtoChunk implements TreeChunk {
@@ -27,5 +31,12 @@ public class MixinProtoChunk implements TreeChunk {
     @Override
     public TreeTrackerImpl getTracker() {
         return this.tracker;
+    }
+
+    @Inject(method = "setBlockState", at = @At("RETURN"))
+    private void removeTree(BlockPos pos, BlockState state, boolean moved, CallbackInfoReturnable<BlockState> cir) {
+        if (!state.isIn(BlockTags.LOGS)) {
+            this.tracker.remove(pos);
+        }
     }
 }
